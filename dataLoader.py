@@ -74,6 +74,7 @@ class SaliconDataset(Dataset):
 
 
 def get_dataloaders(batch_size=32, num_workers=0, dataset_root=None):
+    print("Getting dataloaders...")
     train_dataset = SaliconDataset(split='train', dataset_root=dataset_root)
     val_dataset = SaliconDataset(split='val', dataset_root=dataset_root)
 
