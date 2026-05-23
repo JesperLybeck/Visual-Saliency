@@ -304,10 +304,14 @@ class SaliencyResNetSkip(nn.Module):
         # Decoder
         # -------------------------------------------------
 
-        self.dec4 = DecoderBlock(2048, 1024, 512)
-        self.dec3 = DecoderBlock(512, 512, 256)
-        self.dec2 = DecoderBlock(256, 256, 128)
-        self.dec1 = DecoderBlock(128, 64, 64)
+        # self.dec4 = DecoderBlock(2048, 1024, 512)
+        # self.dec3 = DecoderBlock(512, 512, 256)
+        # self.dec2 = DecoderBlock(256, 256, 128)
+        # self.dec1 = DecoderBlock(128, 64, 64)
+        self.dec4 = DecoderBlock(2048, 1024, 256)
+        self.dec3 = DecoderBlock(256, 512, 128)
+        self.dec2 = DecoderBlock(128, 256, 64)
+        self.dec1 = DecoderBlock(64, 64, 32)
 
         # -------------------------------------------------
         # Final Prediction
