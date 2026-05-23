@@ -174,7 +174,7 @@ class DecoderBlock(nn.Module):
 # Saliency ResNet U-Net
 # =========================================================
 
-class SaliencyResNet(nn.Module):
+class SaliencyResNetSkip(nn.Module):
 
     def __init__(self, in_channels=3):
 
