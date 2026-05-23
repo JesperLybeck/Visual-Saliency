@@ -22,7 +22,9 @@ class MainPath(nn.Module):
                 kernel_size=1,
                 stride=stride
             ),
+
             nn.BatchNorm2d(F1),
+
             nn.ReLU(inplace=True),
 
             nn.Conv2d(
@@ -31,7 +33,9 @@ class MainPath(nn.Module):
                 kernel_size=kernel_size,
                 padding=kernel_size // 2
             ),
+
             nn.BatchNorm2d(F2),
+
             nn.ReLU(inplace=True),
 
             nn.Conv2d(
@@ -39,6 +43,7 @@ class MainPath(nn.Module):
                 F3,
                 kernel_size=1
             ),
+
             nn.BatchNorm2d(F3),
         )
 
@@ -54,6 +59,7 @@ class MainPath(nn.Module):
                 module.bias.data.zero_()
 
     def forward(self, x):
+
         return self.main_path(x)
 
 
@@ -127,7 +133,7 @@ class ConvolutionalBlock(MainPath):
 
 
 # =========================================================
-# U-Net Decoder Block
+# Decoder Block
 # =========================================================
 
 class DecoderBlock(nn.Module):
@@ -301,17 +307,50 @@ class SaliencyResNetSkip(nn.Module):
         )
 
         # -------------------------------------------------
+        # Projection Layers
+        # -------------------------------------------------
+
+        self.bottleneck_proj = nn.Conv2d(
+            2048,
+            256,
+            kernel_size=1
+        )
+
+        self.skip4_proj = nn.Conv2d(
+            1024,
+            256,
+            kernel_size=1
+        )
+
+        self.skip3_proj = nn.Conv2d(
+            512,
+            128,
+            kernel_size=1
+        )
+
+        self.skip2_proj = nn.Conv2d(
+            256,
+            64,
+            kernel_size=1
+        )
+
+        self.skip1_proj = nn.Conv2d(
+            64,
+            32,
+            kernel_size=1
+        )
+
+        # -------------------------------------------------
         # Decoder
         # -------------------------------------------------
 
-        # self.dec4 = DecoderBlock(2048, 1024, 512)
-        # self.dec3 = DecoderBlock(512, 512, 256)
-        # self.dec2 = DecoderBlock(256, 256, 128)
-        # self.dec1 = DecoderBlock(128, 64, 64)
-        self.dec4 = DecoderBlock(2048, 1024, 256)
-        self.dec3 = DecoderBlock(256, 512, 128)
-        self.dec2 = DecoderBlock(128, 256, 64)
-        self.dec1 = DecoderBlock(64, 64, 32)
+        self.dec4 = DecoderBlock(256, 256, 256)
+
+        self.dec3 = DecoderBlock(256, 128, 128)
+
+        self.dec2 = DecoderBlock(128, 64, 64)
+
+        self.dec1 = DecoderBlock(64, 32, 32)
 
         # -------------------------------------------------
         # Final Prediction
@@ -320,7 +359,7 @@ class SaliencyResNetSkip(nn.Module):
         self.final = nn.Sequential(
 
             nn.Conv2d(
-                64,
+                32,
                 32,
                 kernel_size=3,
                 padding=1
@@ -344,23 +383,43 @@ class SaliencyResNetSkip(nn.Module):
         # -------------------------------------------------
 
         s1 = self.stem(x)
+
         s2 = self.stage2(s1)
+
         s3 = self.stage3(s2)
+
         s4 = self.stage4(s3)
 
         x = self.stage5(s4)
 
         # -------------------------------------------------
-        # Decoder + Skip Connections
+        # Projection Layers
+        # -------------------------------------------------
+
+        x = self.bottleneck_proj(x)
+
+        s4 = self.skip4_proj(s4)
+
+        s3 = self.skip3_proj(s3)
+
+        s2 = self.skip2_proj(s2)
+
+        s1 = self.skip1_proj(s1)
+
+        # -------------------------------------------------
+        # Decoder
         # -------------------------------------------------
 
         x = self.dec4(x, s4)
+
         x = self.dec3(x, s3)
+
         x = self.dec2(x, s2)
+
         x = self.dec1(x, s1)
 
         # -------------------------------------------------
-        # Final Resolution
+        # Final Upsampling
         # -------------------------------------------------
 
         x = F.interpolate(
