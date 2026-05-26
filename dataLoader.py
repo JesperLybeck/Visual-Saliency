@@ -1,6 +1,7 @@
 import kagglehub
 from pathlib import Path
 import torch
+import torchvision
 from torch.utils.data import Dataset, random_split, DataLoader
 import numpy as np
 from PIL import Image
@@ -24,7 +25,95 @@ def downloadDataset():
     )
 
     print("Path to dataset files:", path)
+import random
+import torchvision.transforms.functional as TF
 
+
+class SaliencyAugmentation:
+
+    def __init__(
+        self,
+        hflip_prob=0.5,
+        brightness=0.08,
+        contrast=0.08,
+        saturation=0.08,
+        hue=0.01,
+        
+        
+    ):
+        self.blur_prob = 0.15
+
+        self.blur = torchvision.transforms.GaussianBlur(
+            kernel_size=3,
+            sigma=(0.1, 1.0)
+)
+
+        self.hflip_prob = hflip_prob
+        
+
+        self.color_jitter = torchvision.transforms.ColorJitter(
+            brightness=brightness,
+            contrast=contrast,
+            saturation=saturation,
+            hue=hue
+        )
+        self.crop_scale = (0.95, 1.0)
+        self.crop_ratio = (0.95, 1.05)
+
+    def __call__(self, sample):
+
+        image, heatmap = sample
+
+        # -------------------------------------------------
+        # Horizontal Flip
+        # -------------------------------------------------
+
+        if random.random() < self.hflip_prob:
+
+            image = TF.hflip(image)
+
+            heatmap = TF.hflip(heatmap)
+
+        # -------------------------------------------------
+        # Mild Random Resized Crop
+        # -------------------------------------------------
+
+        i, j, h, w = torchvision.transforms.RandomResizedCrop.get_params(
+            image,
+            scale=self.crop_scale,
+            ratio=self.crop_ratio
+        )
+
+        image = TF.resized_crop(
+            image,
+            i,
+            j,
+            h,
+            w,
+            size=image.shape[-2:],
+            interpolation=TF.InterpolationMode.BILINEAR
+        )
+
+        heatmap = TF.resized_crop(
+            heatmap,
+            i,
+            j,
+            h,
+            w,
+            size=heatmap.shape[-2:],
+            interpolation=TF.InterpolationMode.BILINEAR
+        )
+        if random.random() < self.blur_prob:
+
+            image = self.blur(image)
+
+        # -------------------------------------------------
+        # Color Jitter (IMAGE ONLY)
+        # -------------------------------------------------
+
+        image = self.color_jitter(image)
+
+        return image, heatmap
 
 class SaliconDataset(Dataset):
     def __init__(self, split='train', transform=None, dataset_root=None):
@@ -75,8 +164,20 @@ class SaliconDataset(Dataset):
 
 def get_dataloaders(batch_size=32, num_workers=0, dataset_root=None):
     print("Getting dataloaders...")
-    train_dataset = SaliconDataset(split='train', dataset_root=dataset_root)
-    val_dataset = SaliconDataset(split='val', dataset_root=dataset_root)
+    
+
+    train_transform = SaliencyAugmentation()
+
+    train_dataset = SaliconDataset(
+        split='train',
+        transform=train_transform,
+        dataset_root=dataset_root
+    )
+
+    val_dataset = SaliconDataset(
+        split='val',
+        dataset_root=dataset_root
+    )
 
     val_size = len(val_dataset) // 2
     test_size = len(val_dataset) - val_size
@@ -85,8 +186,9 @@ def get_dataloaders(batch_size=32, num_workers=0, dataset_root=None):
         [val_size, test_size],
         generator=torch.Generator().manual_seed(42)
     )
+   
 
-    train_dataset = SaliconDataset(split='train', dataset_root=dataset_root)
+  
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)

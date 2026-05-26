@@ -169,10 +169,71 @@ class ConvolutionalBlock(MainPath):
 # Decoder Block
 # =========================================================
 
+# class DecoderBlock(nn.Module):
+
+#     def __init__(self, in_ch, skip_ch, out_ch):
+#         super().__init__()
+
+#         self.refine = nn.Sequential(
+#         nn.Conv2d(in_ch, in_ch, 3, padding=1),
+#         nn.BatchNorm2d(in_ch),
+#         nn.ReLU(inplace=True)
+# )
+
+#         self.conv1 = nn.Conv2d(
+#             in_ch + skip_ch,
+#             out_ch,
+#             kernel_size=3,
+#             padding=1
+#         )
+
+#         self.bn1 = nn.BatchNorm2d(out_ch)
+
+#         self.conv2 = nn.Conv2d(
+#             out_ch,
+#             out_ch,
+#             kernel_size=3,
+#             padding=1
+#         )
+
+#         self.bn2 = nn.BatchNorm2d(out_ch)
+
+#     def forward(self, x, skip):
+
+#         x = F.interpolate(
+#             x,
+#             size=skip.shape[-2:],
+#             mode='bilinear',
+#             align_corners=False
+#         )
+
+#         x = self.refine(x)
+
+#         x = torch.cat([x, skip], dim=1)
+
+#         x = F.relu(self.bn1(self.conv1(x)))
+#         x = F.relu(self.bn2(self.conv2(x)))
+
+#         return x
+
 class DecoderBlock(nn.Module):
 
     def __init__(self, in_ch, skip_ch, out_ch):
         super().__init__()
+
+        self.refine = nn.Sequential(
+
+            nn.Conv2d(
+                in_ch,
+                in_ch,
+                kernel_size=3,
+                padding=1
+            ),
+
+            nn.BatchNorm2d(in_ch),
+
+            nn.ReLU(inplace=True)
+        )
 
         self.conv1 = nn.Conv2d(
             in_ch + skip_ch,
@@ -192,6 +253,15 @@ class DecoderBlock(nn.Module):
 
         self.bn2 = nn.BatchNorm2d(out_ch)
 
+        # Residual projection if needed
+        self.residual = nn.Conv2d(
+            in_ch + skip_ch,
+            out_ch,
+            kernel_size=1
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
     def forward(self, x, skip):
 
         x = F.interpolate(
@@ -201,12 +271,23 @@ class DecoderBlock(nn.Module):
             align_corners=False
         )
 
+        x = self.refine(x)
+
         x = torch.cat([x, skip], dim=1)
 
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
+        identity = self.residual(x)
 
-        return x
+        out = self.relu(
+            self.bn1(self.conv1(x))
+        )
+
+        out = self.bn2(self.conv2(out))
+
+        out = out + identity
+
+        out = self.relu(out)
+
+        return out
 
 
 # =========================================================
