@@ -14,38 +14,71 @@ class MainPath(nn.Module):
 
         F1, F2, F3 = filters
 
+        # self.main_path = nn.Sequential(
+
+        #     nn.Conv2d(
+        #         in_channels,
+        #         F1,
+        #         kernel_size=1,
+        #         stride=stride
+        #     ),
+
+        #     nn.BatchNorm2d(F1),
+
+        #     nn.ReLU(inplace=True),
+
+        #     nn.Conv2d(
+        #         F1,
+        #         F2,
+        #         kernel_size=kernel_size,
+        #         padding=kernel_size // 2
+        #     ),
+
+        #     nn.BatchNorm2d(F2),
+
+        #     nn.ReLU(inplace=True),
+
+        #     nn.Conv2d(
+        #         F2,
+        #         F3,
+        #         kernel_size=1
+        #     ),
+
+        #     nn.BatchNorm2d(F3),
+        # )
         self.main_path = nn.Sequential(
 
-            nn.Conv2d(
-                in_channels,
-                F1,
-                kernel_size=1,
-                stride=stride
-            ),
+        nn.Conv2d(
+            in_channels,
+            F1,
+            kernel_size=1,
+            stride=1
+        ),
 
-            nn.BatchNorm2d(F1),
+        nn.BatchNorm2d(F1),
 
-            nn.ReLU(inplace=True),
+        nn.ReLU(inplace=True),
 
-            nn.Conv2d(
-                F1,
-                F2,
-                kernel_size=kernel_size,
-                padding=kernel_size // 2
-            ),
+        nn.Conv2d(
+            F1,
+            F2,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=kernel_size // 2
+        ),
 
-            nn.BatchNorm2d(F2),
+        nn.BatchNorm2d(F2),
 
-            nn.ReLU(inplace=True),
+        nn.ReLU(inplace=True),
 
-            nn.Conv2d(
-                F2,
-                F3,
-                kernel_size=1
-            ),
+        nn.Conv2d(
+            F2,
+            F3,
+            kernel_size=1
+        ),
 
-            nn.BatchNorm2d(F3),
-        )
+        nn.BatchNorm2d(F3),
+    )
 
         self.apply(self._init_weights)
 
@@ -290,7 +323,7 @@ class SaliencyResNetSkip(nn.Module):
                 1024,
                 [512, 512, 2048],
                 kernel_size=3,
-                stride=2
+                stride=1
             ),
 
             IdentityBlock(
