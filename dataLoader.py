@@ -4,6 +4,9 @@ import torch
 import torchvision
 from torch.utils.data import Dataset, random_split, DataLoader
 import numpy as np
+import random
+import torchvision.transforms.functional as TF
+
 from PIL import Image
 
 def downloadDataset():
@@ -25,8 +28,6 @@ def downloadDataset():
     )
 
     print("Path to dataset files:", path)
-import random
-import torchvision.transforms.functional as TF
 
 
 class SaliencyAugmentation:
