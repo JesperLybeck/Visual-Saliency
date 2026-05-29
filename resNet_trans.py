@@ -611,6 +611,7 @@ class SaliencyResNetTrans(nn.Module):
         # -------------------------------------------------
 
         x = self.bottleneck_proj(x)
+        print("Bottleneck:", x.shape)
 
         # -------------------------------------------------
         # Transformer Bottleneck
