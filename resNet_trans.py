@@ -616,9 +616,7 @@ class SaliencyResNetTrans(nn.Module):
 
 
         x = self.bottleneck_proj(x)
-        print("Transformer input shape:", x.shape)
-        print("Pos embed shape:", self.pos_embed.shape)
-        print("Bottleneck:", x.shape)
+        
 
         # -------------------------------------------------
         # Transformer Bottleneck
@@ -631,9 +629,7 @@ class SaliencyResNetTrans(nn.Module):
         # [B, HW, C]
 
         x = x.flatten(2).transpose(1, 2)
-        print("Transformer input shape: flattened", x.shape)
-        print("Pos embed shape flattened:", self.pos_embed.shape)
-        print("Bottleneck: flattened", x.shape)
+       
 
 
         # Add positional embeddings
