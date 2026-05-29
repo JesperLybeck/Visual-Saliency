@@ -513,9 +513,12 @@ class SaliencyResNetTrans(nn.Module):
         # after stem + stages:
         # bottleneck becomes roughly 24x18
 
+        # self.pos_embed = nn.Parameter(
+        #     torch.randn(1, 24 * 18, 256)
+        # )
         self.pos_embed = nn.Parameter(
-            torch.randn(1, 24 * 18, 256)
-        )
+        torch.randn(1, 1200, 256)
+)
 
         self.transformer = nn.Sequential(
 
@@ -589,6 +592,7 @@ class SaliencyResNetTrans(nn.Module):
         )
 
     def forward(self, x):
+        
 
         H, W = x.shape[-2:]
 
@@ -610,7 +614,10 @@ class SaliencyResNetTrans(nn.Module):
         # Projection Layers
         # -------------------------------------------------
 
+
         x = self.bottleneck_proj(x)
+        print("Transformer input shape:", x.shape)
+        print("Pos embed shape:", self.pos_embed.shape)
         print("Bottleneck:", x.shape)
 
         # -------------------------------------------------

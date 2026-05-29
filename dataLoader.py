@@ -150,7 +150,9 @@ class SaliconDataset(Dataset):
         img_path, heatmap_path = self.data[idx]
 
         image = np.array(Image.open(img_path).convert('RGB')).astype(np.float32) / 255.0
+
         image = torch.tensor(image).permute(2, 0, 1).float()
+        print(image.shape)
 
         heatmap = np.array(Image.open(heatmap_path).convert('L')).astype(np.float32) / 255.0
         heatmap = torch.tensor(heatmap).unsqueeze(0).float()
