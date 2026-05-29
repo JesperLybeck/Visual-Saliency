@@ -157,6 +157,18 @@ class SaliconDataset(Dataset):
         heatmap = np.array(Image.open(heatmap_path).convert('L')).astype(np.float32) / 255.0
         heatmap = torch.tensor(heatmap).unsqueeze(0).float()
 
+        image = TF.resize(
+        image,
+        [480, 640],
+        interpolation=TF.InterpolationMode.BILINEAR
+        )
+
+        heatmap = TF.resize(
+            heatmap,
+            [480, 640],
+            interpolation=TF.InterpolationMode.BILINEAR
+        )
+
         sample = (image, heatmap)
 
         if self.transform:
