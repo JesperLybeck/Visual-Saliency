@@ -6,9 +6,35 @@ from torch.utils.data import Dataset, random_split, DataLoader
 import numpy as np
 import random
 import torchvision.transforms.functional as TF
+from scipy.io import loadmat
 
 from PIL import Image
+def buildFixationMap(fixation_data, image_size=(480, 640)):
+    gaze = fixation_data["gaze"]
 
+    fixation_map = np.zeros(
+            (image_size[0], image_size[1]),
+            dtype=np.float32
+        )
+    for observer in range(gaze.shape[0]):
+
+        fix_points = gaze[observer, 0][2]
+
+        for x, y in fix_points:
+
+            x = int(x)
+            y = int(y)
+
+            if (
+                0 <= x < image_size[1] and
+                0 <= y < image_size[0]
+            ):
+                fixation_map[y, x] = 1.0
+    fixation_map = torch.tensor(
+    fixation_map
+    ).unsqueeze(0).float()
+    return fixation_map
+        
 def downloadDataset():
     project_dir = Path(__file__).resolve().parent
     dataset_dir = project_dir / "dataset"
@@ -63,7 +89,7 @@ class SaliencyAugmentation:
 
     def __call__(self, sample):
 
-        image, heatmap = sample
+        image, heatmap, fixation_map = sample
 
         # -------------------------------------------------
         # Horizontal Flip
@@ -74,6 +100,8 @@ class SaliencyAugmentation:
             image = TF.hflip(image)
 
             heatmap = TF.hflip(heatmap)
+
+            fixation_map = TF.hflip(fixation_map)
 
         # -------------------------------------------------
         # Mild Random Resized Crop
@@ -104,6 +132,15 @@ class SaliencyAugmentation:
             size=heatmap.shape[-2:],
             interpolation=TF.InterpolationMode.BILINEAR
         )
+        fixation_map = TF.resized_crop(
+            fixation_map,
+            i,
+            j,
+            h,
+            w,
+            size=fixation_map.shape[-2:],
+            interpolation=TF.InterpolationMode.NEAREST
+        )
         if random.random() < self.blur_prob:
 
             image = self.blur(image)
@@ -114,7 +151,7 @@ class SaliencyAugmentation:
 
         image = self.color_jitter(image)
 
-        return image, heatmap
+        return image, heatmap, fixation_map
 
 class SaliconDataset(Dataset):
     def __init__(self, split='train', transform=None, dataset_root=None):
@@ -128,6 +165,7 @@ class SaliconDataset(Dataset):
 
         image_dir = dataset_root / "images" / "images" / split
         heatmap_dir = dataset_root / "maps" / split
+        fixation_dir = dataset_root / "fixations" / split
 
         print(f"Image dir: {image_dir}")
         print(f"Image dir exists: {image_dir.exists()}")
@@ -138,8 +176,9 @@ class SaliconDataset(Dataset):
         image_files = sorted(image_dir.glob("*.jpg"))
         for img_path in image_files:
             heatmap_path = heatmap_dir / f"{img_path.stem}.png"
-            if heatmap_path.exists():
-                self.data.append((str(img_path), str(heatmap_path)))
+            fixation_path = fixation_dir / f"{img_path.stem}.mat"
+            if heatmap_path.exists() and fixation_path.exists():
+                self.data.append((str(img_path), str(heatmap_path), str(fixation_path)))
 
         print(f"Matched {len(self.data)} pairs\n")
 
@@ -147,7 +186,8 @@ class SaliconDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        img_path, heatmap_path = self.data[idx]
+        img_path, heatmap_path, fixation_path = self.data[idx]
+
 
         image = np.array(Image.open(img_path).convert('RGB')).astype(np.float32) / 255.0
 
@@ -156,6 +196,11 @@ class SaliconDataset(Dataset):
 
         heatmap = np.array(Image.open(heatmap_path).convert('L')).astype(np.float32) / 255.0
         heatmap = torch.tensor(heatmap).unsqueeze(0).float()
+
+        fixation_data = loadmat(fixation_path)
+        fixation_map = buildFixationMap(fixation_data)
+        
+
 
         image = TF.resize(
         image,
@@ -168,8 +213,13 @@ class SaliconDataset(Dataset):
             [480, 640],
             interpolation=TF.InterpolationMode.BILINEAR
         )
+        fixation_map = TF.resize(
+            fixation_map,
+            [480,640],
+            interpolation=TF.InterpolationMode.NEAREST
+        )
 
-        sample = (image, heatmap)
+        sample = (image, heatmap, fixation_map)
 
         if self.transform:
             sample = self.transform(sample)
@@ -214,6 +264,22 @@ def get_dataloaders(batch_size=32, num_workers=0, dataset_root=None):
 
 if __name__ == "__main__":
     train_loader, val_loader, test_loader = get_dataloaders(batch_size=4)
-    image, heatmap = next(iter(train_loader))
-    print(f"Image batch shape: {image.shape}")
-    print(f"Heatmap batch shape: {heatmap.shape}")
+    image, heatmap, fixation_map = next(iter(train_loader))
+    
+   
+
+    dataset = SaliconDataset(
+        split="train",
+        transform=None
+    )
+
+    image, heatmap, fixation_map = dataset[0]
+
+    print("\nShapes")
+    print("Image:", image.shape)
+    print("Heatmap:", heatmap.shape)
+    print("Fixation:", fixation_map.shape)
+
+    print("\nFixation statistics")
+    print("Unique values:", fixation_map.unique())
+    print("Num fixation pixels:", fixation_map.sum().item())
