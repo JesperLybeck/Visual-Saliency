@@ -278,7 +278,7 @@ if __name__ == "__main__":
     print("\nShapes")
     print("Image:", image.shape)
     print("Heatmap:", heatmap.shape)
-    print("Fixation:", fixation_map.shape)b
+    print("Fixation:", fixation_map.shape)
 
     print("\nFixation statistics")
     print("Unique values:", fixation_map.unique())
