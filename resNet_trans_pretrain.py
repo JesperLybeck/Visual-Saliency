@@ -128,23 +128,23 @@ class SaliencyResNetTransPretrained(nn.Module):
                 p.requires_grad = False
 
         # Projection layers
-        self.bottleneck_proj = nn.Conv2d(2048, 256, kernel_size=1)
+        self.bottleneck_proj = nn.Conv2d(2048, 512, kernel_size=1)
         self.skip4_proj = nn.Conv2d(1024, 256, kernel_size=1)
         self.skip3_proj = nn.Conv2d(512, 128, kernel_size=1)
         self.skip2_proj = nn.Conv2d(256, 64, kernel_size=1)
         self.skip1_proj = nn.Conv2d(64, 32, kernel_size=1)
 
         # Learned positional embedding. For 480x640, bottleneck is 30x40=1200 tokens.
-        self.pos_embed = nn.Parameter(torch.zeros(1, 1200, 256))
+        self.pos_embed = nn.Parameter(torch.zeros(1, 1200, 512))
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
 
         self.transformer = nn.Sequential(
-            TransformerBlock(dim=256, num_heads=4),
-            TransformerBlock(dim=256, num_heads=4),
+            TransformerBlock(dim=512, num_heads=8),
+            TransformerBlock(dim=512, num_heads=8),
         )
 
         # Decoder
-        self.dec4 = DecoderBlock(256, 256, 256)
+        self.dec4 = DecoderBlock(512, 256, 256)
         self.dec3 = DecoderBlock(256, 128, 128)
         self.dec2 = DecoderBlock(128, 64, 64)
         self.dec1 = DecoderBlock(64, 32, 32)
@@ -173,7 +173,7 @@ class SaliencyResNetTransPretrained(nn.Module):
         if old_tokens == 1200:
             old_H, old_W = 30, 40
 
-        pos = self.pos_embed.transpose(1, 2).reshape(1, 256, old_H, old_W)
+        pos = self.pos_embed.transpose(1, 2).reshape(1, 512, old_H, old_W)
         pos = F.interpolate(pos, size=(Ht, Wt), mode="bilinear", align_corners=False)
         pos = pos.flatten(2).transpose(1, 2)
         return pos
