@@ -7,8 +7,55 @@ import numpy as np
 import random
 import torchvision.transforms.functional as TF
 from scipy.io import loadmat
+import requests
+import zipfile
 
 from PIL import Image
+
+def download_and_extract(url, output_dir):
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    zip_path = output_dir / "dataset.zip"
+
+    print(f"Downloading {url}")
+
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+
+    with open(zip_path, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+
+    print("Extracting...")
+
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(output_dir)
+
+    zip_path.unlink()
+
+    print(f"Dataset extracted to: {output_dir}")
+
+def download_mit1003():
+    project_dir = Path(__file__).resolve().parent
+
+    dataset_dir = project_dir / "dataset" / "MIT1003"
+
+    download_and_extract(
+        "https://people.csail.mit.edu/tjudd/WherePeopleLook/ALLSTIMULI.zip",
+        dataset_dir
+    )
+def download_cat2000():
+    project_dir = Path(__file__).resolve().parent
+
+    dataset_dir = project_dir / "dataset" / "CAT2000"
+
+    download_and_extract(
+        "http://saliency.mit.edu/trainSet.zip",
+        dataset_dir
+    )
+
 def buildFixationMap(fixation_data, image_size=(480, 640)):
     gaze = fixation_data["gaze"]
 
@@ -262,24 +309,135 @@ def get_dataloaders(batch_size=32, num_workers=0, dataset_root=None):
     return train_loader, val_loader, test_loader
 
 
+class MIT1003Dataset(Dataset):
+
+    def __init__(
+        self,
+        root_dir,
+        image_size=(480, 640)
+    ):
+
+        self.root_dir = Path(root_dir)
+
+        self.image_dir = self.root_dir / "ALLSTIMULI"
+        self.fixation_dir = self.root_dir / "ALLFIXATIONMAPSMAT"
+
+        self.image_size = image_size
+
+        self.samples = []
+
+        valid_exts = {".jpg", ".jpeg", ".png", ".bmp"}
+
+        for img_path in sorted(self.image_dir.iterdir()):
+
+            if img_path.suffix.lower() not in valid_exts:
+                continue
+
+            mat_path = self.fixation_dir / f"{img_path.stem}.mat"
+
+            if mat_path.exists():
+                self.samples.append(
+                    (img_path, mat_path)
+                )
+
+        print(
+            f"MIT1003: found {len(self.samples)} image-fixation pairs"
+        )
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+
+        img_path, mat_path = self.samples[idx]
+
+        # --------------------------------------------------
+        # Load image
+        # --------------------------------------------------
+
+        image = Image.open(img_path).convert("RGB")
+
+        image = TF.to_tensor(image)
+
+        # --------------------------------------------------
+        # Load fixation data
+        # --------------------------------------------------
+
+        fixation_data = loadmat(mat_path)
+
+        heatmap = fixation_data["saliencyMapBlur"]
+        fixation_map = fixation_data["fixationPts"]
+
+        heatmap = torch.tensor(
+            heatmap,
+            dtype=torch.float32
+        ).unsqueeze(0)
+
+        fixation_map = torch.tensor(
+            fixation_map,
+            dtype=torch.float32
+        ).unsqueeze(0)
+
+        # Ensure binary fixation map
+        fixation_map = (
+            fixation_map > 0
+        ).float()
+
+        # --------------------------------------------------
+        # Resize
+        # --------------------------------------------------
+
+        image = TF.resize(
+            image,
+            self.image_size,
+            interpolation=TF.InterpolationMode.BILINEAR
+        )
+
+        heatmap = TF.resize(
+            heatmap,
+            self.image_size,
+            interpolation=TF.InterpolationMode.BILINEAR
+        )
+
+        fixation_map = TF.resize(
+            fixation_map,
+            self.image_size,
+            interpolation=TF.InterpolationMode.NEAREST
+        )
+
+        # Re-binarize after resize
+        fixation_map = (
+            fixation_map > 0.5
+        ).float()
+
+        # --------------------------------------------------
+        # Normalize heatmap
+        # --------------------------------------------------
+
+        heatmap = heatmap / (
+            heatmap.max() + 1e-8
+        )
+
+        return (
+            image,
+            heatmap,
+            fixation_map
+        )
+ 
+def get_mit1003_loader(
+        batch_size=32
+    ):
+
+        dataset = MIT1003Dataset(
+            root_dir="MIT1003"
+        )
+
+        return DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=False
+        )
+
 if __name__ == "__main__":
-    train_loader, val_loader, test_loader = get_dataloaders(batch_size=4)
-    image, heatmap, fixation_map = next(iter(train_loader))
-    
-   
-
-    dataset = SaliconDataset(
-        split="train",
-        transform=None
-    )
-
-    image, heatmap, fixation_map = dataset[0]
-
-    print("\nShapes")
-    print("Image:", image.shape)
-    print("Heatmap:", heatmap.shape)
-    print("Fixation:", fixation_map.shape)
-
-    print("\nFixation statistics")
-    print("Unique values:", fixation_map.unique())
-    print("Num fixation pixels:", fixation_map.sum().item())
+    dataset = MIT1003Dataset(root_dir="MIT1003")
+    print(dataset.samples[:10])
