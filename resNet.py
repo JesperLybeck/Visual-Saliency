@@ -16,7 +16,7 @@ class MainPath(nn.Module):
             nn.Conv2d(F2, F3, kernel_size=1),
             nn.BatchNorm2d(F3),
         )
-        # weight init (simple)
+        
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -83,7 +83,6 @@ class SaliencyResNet(nn.Module):
             IdentityBlock(2048, [512, 512, 2048], kernel_size=3),
         )
 
-        # Small conv head -> 1 channel, then upsample to input size
         self.head = nn.Sequential(
             nn.Conv2d(2048, 512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),
@@ -96,11 +95,11 @@ class SaliencyResNet(nn.Module):
 
     def forward(self, x):
         H, W = x.shape[-2], x.shape[-1]
-        x = self.stem(x)     # downsample
-        x = self.stage2(x)   # /4 -> /8 depending on strides
+        x = self.stem(x)     
+        x = self.stage2(x)   
         x = self.stage3(x)
         x = self.stage4(x)
-        x = self.stage5(x)   # final feature map (B,2048,h',w')
-        y = self.head(x)     # (B,1,h',w')
+        x = self.stage5(x)   
+        y = self.head(x)     
         y = F.interpolate(y, size=(H, W), mode='bilinear', align_corners=False)
         return y
