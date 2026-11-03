@@ -8,12 +8,7 @@ class TransformerBlock(nn.Module):
     def __init__(self, dim=256, num_heads=4, mlp_ratio=4.0, dropout=0.1):
         super().__init__()
         self.norm1 = nn.LayerNorm(dim)
-        self.attn = nn.MultiheadAttention(
-            embed_dim=dim,
-            num_heads=num_heads,
-            dropout=dropout,
-            batch_first=True
-        )
+        self.attn = nn.MultiheadAttention(embed_dim=dim, num_heads=num_heads, dropout=dropout, batch_first=True)
         self.norm2 = nn.LayerNorm(dim)
         hidden_dim = int(dim * mlp_ratio)
         self.mlp = nn.Sequential(
@@ -23,7 +18,6 @@ class TransformerBlock(nn.Module):
             nn.Linear(hidden_dim, dim),
             nn.Dropout(dropout),
         )
-
     def forward(self, x):
         x_norm = self.norm1(x)
         attn_out, _ = self.attn(x_norm, x_norm, x_norm)
@@ -31,7 +25,6 @@ class TransformerBlock(nn.Module):
         x_norm = self.norm2(x)
         x = x + self.mlp(x_norm)
         return x
-
 
 class DecoderBlock(nn.Module):
     def __init__(self, in_ch, skip_ch, out_ch):
@@ -59,7 +52,6 @@ class DecoderBlock(nn.Module):
         out = self.relu(out + identity)
         return out
 
-
 def make_center_prior(H=480, W=640, sigma=0.45):
     y = torch.linspace(-1.0, 1.0, H)
     x = torch.linspace(-1.0, 1.0, W)
@@ -68,39 +60,18 @@ def make_center_prior(H=480, W=640, sigma=0.45):
     prior = prior / prior.max()
     return prior.unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
 
-
 class SaliencyResNetTransPretrained(nn.Module):
-
-    def __init__(
-        self,
-        pretrained=True,
-        normalize_input=True,
-        freeze_stem=False,
-        freeze_layer1=False,
-        input_size=(480, 640),
-    ):
+    def __init__(self, pretrained=True, normalize_input=True, freeze_stem=False, freeze_layer1=False, input_size=(480, 640),):
+        
         super().__init__()
         weights = ResNet50_Weights.IMAGENET1K_V2 if pretrained else None
-        backbone = resnet50(
-            weights=weights,
-            replace_stride_with_dilation=[False, False, True]
-        )
+        backbone = resnet50(weights=weights, replace_stride_with_dilation=[False, False, True])
+        
         self.normalize_input = normalize_input
-        self.register_buffer(
-            "imagenet_mean",
-            torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1),
-            persistent=False,
-        )
-        self.register_buffer(
-            "imagenet_std",
-            torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1),
-            persistent=False,
-        )
-        self.stem = nn.Sequential(
-            backbone.conv1,
-            backbone.bn1,
-            backbone.relu,
-        )
+        self.register_buffer("imagenet_mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1), persistent=False,)
+        self.register_buffer("imagenet_std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1), persistent=False,)
+        
+        self.stem = nn.Sequential(backbone.conv1, backbone.bn1, backbone.relu,)
         self.maxpool = backbone.maxpool
         self.stage2 = backbone.layer1  
         self.stage3 = backbone.layer2  
